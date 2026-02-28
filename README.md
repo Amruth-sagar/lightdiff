@@ -85,7 +85,7 @@ VAE_CFG = {
 To launch the training script, run
 
 ```bash
-torchrun --nproc_per_node=NUM_GPUS scripts/trianvae.py \
+torchrun --standalone --nproc_per_node=NUM_GPUS scripts/trianvae.py \
     --random_seed 42 \
     --lr 1e-4 \
     --kl_beta 0.001 \
@@ -159,7 +159,7 @@ To start the UNet training, ensure you have your latent_data prepared, and the s
 
 
 ```bash
-torchrun --nproc_per_node=NUM_GPUS script/trainunet.py \
+torchrun --standalone --nproc_per_node=NUM_GPUS script/trainunet.py \
     --random_seed 42 \
     --lr 1e-4 \
     --scaling_factor <your_scaling_factor> \
