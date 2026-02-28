@@ -12,6 +12,21 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+dependencies = [
+    "numpy>=2.1.0",      
+    "pandas>=2.2.3",
+    "tqdm>=4.66.0",
+    "tensorboard>=2.16.0"
+]
+
+[project.optional-dependencies]
+# Install these using: pip install -e ".[jupyter]"
+jupyter = [
+    "ipykernel>=6.29.0",
+    "jupyterlab>=4.3.0",
+    "ipywidgets>=8.1.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["lightdiff*"]
