@@ -14,13 +14,15 @@ if __name__ == "__main__":
     argument_parser.add_argument('--unet_ckpt_path', type=str, required=True)
     argument_parser.add_argument('--noise_type', type=str, required=True)
     argument_parser.add_argument('--save_dir', type=str, required=True)
-    argument_parser.add_argument('--image_name', type=str, required=True)
+    argument_parser.add_argument('--image_name_prefix', type=str, required=True)
     argument_parser.add_argument('--device', type=str, default='cuda:0')
     argument_parser.add_argument('--resolution', type=int, default=256)
     argument_parser.add_argument('--num_steps', type=int, default=50)
+    argument_parser.add_argument('--num_images', type=int, required=True)
     argument_parser.add_argument('--max_timesteps', type=int, required=True)
-    argument_parser.add_argument('--latent_shape', nargs="+", type=int, required=True)
+    argument_parser.add_argument('--latent_shape', nargs="+", type=int, required=True) # 3 numbers in the format (latent_channels, latent_h, latent_w)
     argument_parser.add_argument('--scaling_factor', type=float, required=True)
+    argument_parser.add_argument('--random_seed', type=int, required=True)
 
     args = argument_parser.parse_args()
 
@@ -37,6 +39,9 @@ if __name__ == "__main__":
     # for unet, we load the ema model
     model_unet.load_state_dict(ckpt_unet['ema_state_dict'])
 
+    model_vae.to(device)
+    model_unet.to(device)
+
     scheduler = NoiseScheduler(args.max_timesteps, "cosine", device=device)
 
     resolution = args.resolution
@@ -47,12 +52,19 @@ if __name__ == "__main__":
         transforms.Normalize([0.5, 0.5, 0.5],[0.5, 0.5, 0.5])
     ])
     
-    output_latent = ddim_sample(model=model_unet, scheduler=scheduler, shape=tuple(args.latent_shape), num_steps=args.num_steps)
+    output_latent = ddim_sample(
+        model=model_unet, scheduler=scheduler, 
+        shape=tuple(args.latent_shape), 
+        num_steps=args.num_steps, 
+        num_images=args.num_images, 
+        random_seed=args.random_seed)
     reconstructed = model_vae.decode(output_latent / args.scaling_factor)
     # brining back from [-1,-1] to [0,1] range
     reconstructed_rescaled = (reconstructed +1 )/2
-    reconstructed_rescaled = reconstructed_rescaled.squeeze(0).clamp(0,1)
-    reconstructed_pil_image = transforms.functional.to_pil_image(reconstructed_rescaled)
-    reconstructed_pil_image.save(f'{args.save_dir}/{args.image_name}.png')
+    reconstructed_rescaled = reconstructed_rescaled.clamp(0,1)
+
+    for i in range(reconstructed_rescaled.shape[0]):
+        reconstructed_pil_image = transforms.functional.to_pil_image(reconstructed_rescaled[i])
+        reconstructed_pil_image.save(f'{args.save_dir}/{args.image_name_prefix}_seed_{args.random_seed}_steps_{args.num_steps}_{i}.png')
 
     
