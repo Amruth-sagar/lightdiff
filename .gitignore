@@ -9,6 +9,9 @@ __pycache__/
 # Any file with 'nogit' in its name
 *nogit*
 
+# Any weights
+*.pth
+
 # Distribution / packaging
 .Python
 build/
