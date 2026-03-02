@@ -61,8 +61,8 @@ This repository is organized into a modular library called lightdiff and a set o
 ## :inbox_tray: Downloading datasets
 For training the VAE, the following datasets were used.
 
-- **FFHQ-256**
-- **Fair Face**
+- **FFHQ-256**: https://www.kaggle.com/datasets/denislukovnikov/ffhq256-images-only
+- **Fair Face**: https://github.com/joojs/fairface?tab=readme-ov-file (download `padding=1.25`)
 
 ## :gear: Training the model
 The script `scripts/trianvae.py` handles the distributed training and validation VAE. It is optimized for high-resolution image reconstruction using a combination of MSE, KL-divergence, and LPIPS perceptual losses.
@@ -166,7 +166,7 @@ torchrun --standalone --nproc_per_node=NUM_GPUS script/trainunet.py \
     --latent_data_file ./preprocessed_data/latent_data.pkl \
     --batch_size 32 \
     --total_timesteps 1000 \
-    --noise_scheduler_type "cosine" \   
+    --noise_scheduler_type cosine \   
     --epochs 100 \
     --metric_log_dir ./unet_logs \
     --ckpt_dir ./unet_checkpoints \
@@ -177,25 +177,47 @@ torchrun --standalone --nproc_per_node=NUM_GPUS script/trainunet.py \
 ```
 
 # :paintbrush: Inference and Image Generation
-The script `script/generate_image.py`serves as the final stage of the pipeline: using the trained models to generate new images from pure noise. It combines the UNet (for iterative denoising) and the VAE Decoder (for mapping latents back to pixel space) using the DDIM (Denoising Diffusion Implicit Models) sampling algorithm.
+The script `script/generate_image.py` serves as the final stage of the pipeline: using the trained models to generate new images from pure noise. It combines the UNet (for iterative denoising) and the VAE Decoder (for mapping latents back to pixel space) using the DDIM (Denoising Diffusion Implicit Models) sampling algorithm.
 
-To generate an image, you must provide the paths to both your VAE and UNet checkpoints, along with the scaling factor used during UNet training.
+To generate an image, you must provide the paths to both VAE and UNet checkpoints, along with the scaling factor used during UNet training.
 
 ```
-python script/generate_image.py \
+python scripts/generate_image.py \
     --vae_ckpt_path ./checkpoints/VAE_best_val.pth \
     --unet_ckpt_path ./unet_checkpoints/UNET_best_val.pth \
-    --scaling_factor <your_scaling_factor> \
-    --latent_shape 1 4 32 32 \
-    --max_timesteps 1000 \
+    --noise_type cosine \
+    --save_dir ./results \
+    --image_name_prefix sampled_images \
+    --device cuda:0 \
+    --resolution 256 \
     --num_steps 50 \
-    --noise_type "cosine" \
-    --save_dir ./outputs \
-    --image_name "generated_face"
+    --num_images 10 \
+    --max_timesteps 1000 \
+    --latent_shape 4 32 32 \
+    --scaling_factor <your_scaling_factor> \
+    --random_seed 42
 ```
+---
+---
 
 ### :rocket: Pre-trained weights
-- VAE (256x256) : \[*pending*\]:hourglass:
-- UNet : \[*pending*\]:hourglass:
 
-These will be uploaded shortly to serve as a baseline for your own experiments. Feel free to star the repo to get notified when the checkpoints are ready.
+The provides pretrained checkpoints for the VAE and UNet. The VAE maps `256x256` images to a $4 \times 32 \times 32$ latent space. The UNet was trained exclusively on the latent means ($\mu$) with a scaling factor of 0.9498 (similar to Stable Diffusion’s $0.18215$). Both checkpoints contain the following fields: `model_state_dict, 
+optim_state_dict, 
+global_step, 
+optimizer_steps, 
+prev_val_loss, 
+args (used during training),
+[VAE/UNET]_CFG.` 
+
+The UNet checkpoint additionally includes an `ema_state_dict` representing the EMA model weights (decay = 0.999). When loading for inference, it is recommended to use the EMA weights for better generation quality (which `script/generate_image.py` already does)
+
+- VAE (img `256x256`, latent shape `4x32x32`) : [:link: LINK](https://drive.google.com/file/d/1I_ctTdzysFm_9wqa2DVscc6KoYSzNBnI/view?usp=sharing)
+- UNet (trained on only `mu`): [:link: LINK](https://drive.google.com/file/d/1e7aIc7b0D7I3JqytFcp9x4hb5m0g_JpB/view?usp=sharing)
+
+
+## :framed_picture: Results
+
+You can find the model outputs in the [results](/results/) directory. This includes the original images vs. VAE reconstructions ($256\times256$ resolution), demonstrating the fidelity of the $4 \times 32 \times 32$ latent space. 
+
+Additionally, I provide 5 examples of generated images produced using a DDIM sampler with 500 steps ($T=1000$) and a fixed seed of 62.
